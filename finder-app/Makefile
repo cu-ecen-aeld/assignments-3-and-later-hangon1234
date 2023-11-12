@@ -1,18 +1,15 @@
 
-CFLAGS = -g -Wall -Og -std=c99 -ffreestanding
-LDFLAGS = -nostdlib
+CFLAGS = -g -Wall -Og -std=c99 
+LDFLAGS = 
 CC = gcc
 
 all: writer
  
-writer: %.elf
-	$(CC) $< -O binary $@
+writer: writer.o
+	$(CROSS_COMPILE)$(CC) $< -o $@
 
-%.elf: %.o
-	$(CC) $(LDFLAGS) $< -o $@
-
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+writer.o: writer.c
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f *.o *.elf *.bin *.list
+	rm -f *.o *.elf *.bin 
