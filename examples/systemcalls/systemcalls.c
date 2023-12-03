@@ -1,4 +1,6 @@
 #include "systemcalls.h"
+#include <stdlib.h>
+#include <errno.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -19,9 +21,13 @@ bool do_system(const char *cmd)
 
     int ret;
     int errno_local;
+    if (cmd == NULL){
+        return false;
+    }
+
     ret = system(cmd);
     errno_local = errno;
-    if (ret == NULL || ret == 0 || ret == -1 || ret == 127 || errno_local != 0){
+    if (ret == -1 || ret == 127 || errno_local != 0){
         return false;
     } else {
         return true;
