@@ -17,7 +17,15 @@ bool do_system(const char *cmd)
  *   or false() if it returned a failure
 */
 
-    return true;
+    int ret;
+    int errno_local;
+    ret = system(cmd);
+    errno_local = errno;
+    if (ret == NULL || ret == 0 || ret == -1 || ret == 127 || errno_local != 0){
+        return false;
+    } else {
+        return true;
+    }
 }
 
 /**
