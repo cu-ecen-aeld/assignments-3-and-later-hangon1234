@@ -1,6 +1,11 @@
 #include "systemcalls.h"
 #include <stdlib.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -61,7 +66,7 @@ bool do_exec(int count, ...)
     command[count] = NULL;
     // this line is to avoid a compile warning before your implementation is complete
     // and may be removed
-    command[count] = command[count];
+    //command[count] = command[count];
 
 /*
  * TODO:
@@ -72,10 +77,36 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
-
+    int fork_ret;
+    fork_ret = fork();
+    
+    if (fork_ret == -1)
+    {
+        // error occured
+	return(false);
+    } else if (fork_ret == 0) {
+        // This is the child process
+	// Execute
+	int execv_ret;
+	execv_ret = execv(command[0], command);
+        if (execv_ret == -1 || errno != 0) {
+	    exit(1);
+	} else {
+	    exit(0);
+	}
+    } else {
+        // This is the parent process
+	int status;
+        wait(&status);
+        if (WEXITSTATUS(status) == 0) {
+        // WIFEXITED true when child terminated normally
+            return(true);
+        } else {
+            // not terminated normally
+	    return(false);
+	}
+    }
     va_end(args);
-
-    return true;
 }
 
 /**
@@ -107,6 +138,38 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *
 */
 
+    int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    dup2(fd, 1);
+
+    int fork_ret;
+    fork_ret = fork();
+
+    if (fork_ret == -1)
+    {
+        // error occured
+	return(false);
+    } else if (fork_ret == 0) {
+        // This is the child process
+	// Execute
+	int execv_ret;
+	execv_ret = execv(command[0], command);
+        if (execv_ret == -1 || errno != 0) {
+	    exit(1);
+	} else {
+	    exit(0);
+	}
+    } else {
+        // This is the parent process
+	int status;
+        wait(&status);
+        if (WEXITSTATUS(status) != 0) {
+        // WIFEXITED true when child terminated normally
+            return(false);
+        } else {
+            // not terminated normally
+	    return(true);
+	}
+    }
     va_end(args);
 
     return true;
