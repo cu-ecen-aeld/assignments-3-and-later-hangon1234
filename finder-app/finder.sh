@@ -13,14 +13,10 @@ if [ ! -d $filesdir ]; then
     exit 1 
 fi
 
-lines=$( grep -rc $searchstr $filesdir )
 file_count=0
 matched_line_count=0
 
-while IFS= read -r line; do
-    file_count=$(( file_count + 1 ))
-    count=$( echo $line | rev | cut -d ":" -f 1 )
-    matched_line_count=$(( matched_line_count + count ))
-done <<< "$lines"
+matched_line_count=$( grep -ir "$searchstr" $filesdir | wc -l )
+file_count=$( grep -irl "$searchstr" $filesdir | wc -l )
 
 echo "The number of files are $file_count and the number of matching lines are $matched_line_count"
