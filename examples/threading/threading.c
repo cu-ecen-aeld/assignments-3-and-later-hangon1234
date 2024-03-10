@@ -34,8 +34,6 @@ bool start_thread_obtaining_mutex(pthread_t *thread, pthread_mutex_t *mutex,int 
      * TODO: allocate memory for thread_data, setup mutex and wait arguments, pass thread_data to created thread
      * using threadfunc() as entry point.
      *
-     * return true if successful.
-     *
      * See implementation details in threading.h file comment block
      */
     // Create thread_data
@@ -48,9 +46,9 @@ bool start_thread_obtaining_mutex(pthread_t *thread, pthread_mutex_t *mutex,int 
     p_thread_data->sleep_ms = wait_to_release_ms;
 
     // Create thread
-    bool result = pthread_create(thread, NULL, &threadfunc, p_thread_data);
+    bool result = pthread_create(thread, NULL, threadfunc, p_thread_data);
 
     // return result
-    return result;
+    return !result;
 }
 
