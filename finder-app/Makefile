@@ -1,15 +1,15 @@
 
 CFLAGS = -g -Wall -Og -std=c99 
 LDFLAGS = 
-CC = gcc
+CC = $(CROSS_COMPILE)gcc
 
 all: writer
  
 writer: writer.o
-	$(CROSS_COMPILE)$(CC) $< -o $@
+	$(CC) $< -o $@
 
 writer.o: writer.c
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
 	rm -f *.o *.elf *.bin 
