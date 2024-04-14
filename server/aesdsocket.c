@@ -7,12 +7,16 @@
 #include <string.h>
 
 #define BUFLEN 128 
+#define BACKLOG 10 // maximum pending connections in the queue
+#define MYPORT "9000"
+
+// reference: https://beej.us/guide/bgnet/html/#socket
+
 int main(void)
 {
     /* socket server for assignment 5 part 1 */
-
-    /* Get socket_fd */
-    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    
+    int ret = 0;
 
     /* Get addrinfo structure */
     struct addrinfo * addrinfo_ptr = NULL;
@@ -25,18 +29,62 @@ int main(void)
     hints.ai_flags = AI_PASSIVE;
 
     /* use getaddrinfo to get addrinfo structure */
-    getaddrinfo(NULL, "9000", &hints, &addrinfo_ptr);
+    ret = getaddrinfo(NULL, MYPORT, &hints, &addrinfo_ptr);
+
+    /* Check retcode of getaddrinfo */
+    if (ret != 0) {
+        return(ret); // exit if ret != 0
+    }
+
+    /* Get socket_fd */
+    int socket_fd = socket(addrinfo_ptr->ai_family, addrinfo_ptr->ai_socktype, addrinfo_ptr->ai_flags);
+
+    /* check return value of socket
+     * it returns fd if success
+     * or -1 if on error
+     */
+
+    if (socket_fd == -1) { // socket() returns error
+        return(socket_fd);
+    }
 
     /* use bind to assign address */
-    bind(socket_fd, addrinfo_ptr->ai_addr, sizeof(struct sockaddr));
+    ret = bind(socket_fd, addrinfo_ptr->ai_addr, addrinfo_ptr->ai_addrlen);
+    
+    /* bind() also returns -1 on error. check error */
+    if (ret == -1) {
+        return(ret);
+    }
 
-    /* listen for connections on a socket */
-    listen(socket_fd, 10);
+    /* handling for incoming connection */
+    ret = listen(socket_fd, BACKLOG);
+    
+    /* listen() also returns -1 on error. check error */
+    if (ret == -1) {
+        return(ret);
+    }
+
+    /* this structure will store information about the incoming connection 
+     * to determine which host is calling from which port 
+     */
+    struct sockaddr_storage connection_info;
+
+    /* size of the struct sockaddr_storage
+     * accept() will not put more bytes than addr_size
+     * If fewer, accetp() will change the value of addr_size
+     */
+    socklen_t addr_size = sizeof(connection_info);
 
     /* accept a connection on a socket */
-    struct sockaddr * client_addr = NULL;
-    socklen_t client_num = sizeof(struct sockaddr);
-    int fd_rw = accept(socket_fd, client_addr, &client_num); 
+    int accept_fd = accept(socket_fd, (struct sockaddr *)&connection_info, &addr_size); 
+
+    /* accept() also returns -1 on error. check error */
+    if (accept_fd == -1){
+        return(accept_fd);
+    }
+
+    /* print information about the incoming connection */
+    printf("Accept connection from %s\n", ((struct sockaddr_in*)&connection_info)->sin_addr);
 
     /* buffer to store received data */
     char buf[BUFLEN];
