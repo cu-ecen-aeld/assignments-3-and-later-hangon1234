@@ -110,9 +110,13 @@ int main(void)
     buf[BUFLEN] = '\0';
     int len = strlen(buf);
     printf("len: %d\n", len);
-    printf("buffer: %s\n", buf);
-    printf("=====\n");
-    int bytes_sent = send(fd_accept, buf, len , 0);
+    int i=0;
+    for(i = 0; i < len; i++)
+    {
+        printf("%d ", buf[i]);
+    }
+    printf("\n-------------\n");
+    int bytes_sent = send(fd_accept, buf, len, 0);
     
     printf("bytes sent: %d\n", bytes_sent);
 
