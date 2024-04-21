@@ -14,23 +14,22 @@
 #define BUFLEN 128 
 #define BACKLOG 10 // maximum pending connections in the queue
 #define MYPORT "9000"
+#define TEMP_PATH "/var/tmp/aesdsocketdata"
 
 // reference: https://beej.us/guide/bgnet/html/#socket
 
-void send_file_to_client(FILE* fp, int byte_written, int fd_accept) {
-    fseek(fp, SEEK_SET);
-    char buf[BUFLEN];
+void send_file_to_client(int byte_written, int fd_accept) {
+    FILE * fp = fopen(TEMP_PATH, "r");
+    char buf[1];
     int read_size = 0;
     int i = 0;
 
-    printf("Bytes to send: %d sizeofchar: %d\n", byte_written, sizeof(char));
+    printf("Bytes to send: %d sizeofchar: %ld\n", byte_written, sizeof(char));
    
     /* send back to the client */
-    // size_t fread(void *buffer, size_t size, size_t count, FILE *stream);
-    for(i = 0; i < byte_written; (i+=BUFLEN)) {
-        read_size = fread(buf, sizeof(char), BUFLEN, fp);
+    for(i = 0; i < byte_written; i++) {
+        read_size = fread(buf, 1, 1, fp);
         send(fd_accept, buf, read_size, 0);
-        printf("Send back to client: %c read_size: %d fp: %p\n", buf[0], read_size, fp);
     }
 
     return;
@@ -63,7 +62,7 @@ int main(void)
     int ret = 0;
 
     /* Open file for saving received content */
-    FILE * fp = fopen("/var/tmp/aesdsocketdata", "w");
+    FILE * fp = fopen(TEMP_PATH, "w");
     /* File offeset, indicate position where returned to client */
 
     /* Check file opened or not */
@@ -150,11 +149,11 @@ int main(void)
         }
 
         /* Log connected client information */
-        printf("value of client_addr: 0x%llx\n", client_addr);
         ret = log_client_info((struct sockaddr*)&client_addr, client_num);
 
         /* Allocate buffer for socket operation */
         char buf[BUFLEN];
+        buf[BUFLEN] = '\0';
 
         /* receive until newline received */
 	while(1) {
@@ -174,7 +173,7 @@ int main(void)
             int i=0;
             for(i = 0; i < ret; i++)
             {
-                printf("%d ", buf[i]);
+                printf("%c ", buf[i]);
             }
             printf("\n-------------\n");
 
@@ -187,10 +186,9 @@ int main(void)
             /* send back received message to the client */
 	    if (strchr(buf, '\n') != NULL) {
 		fflush(fp);
-	        send_file_to_client(fp, byte_written, fd_accept);
+	        send_file_to_client(byte_written, fd_accept);
+	        break;
             }
-            
-	    break;
         }
     }
     
