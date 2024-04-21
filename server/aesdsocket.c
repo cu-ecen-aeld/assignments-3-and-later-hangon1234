@@ -4,8 +4,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <syslog.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <string.h>
 
@@ -15,11 +17,60 @@
 
 // reference: https://beej.us/guide/bgnet/html/#socket
 
+void send_file_to_client(FILE* fp, int byte_written, int fd_accept) {
+    fseek(fp, SEEK_SET);
+    char buf[BUFLEN];
+    int read_size = 0;
+    int i = 0;
+
+    printf("Bytes to send: %d sizeofchar: %d\n", byte_written, sizeof(char));
+   
+    /* send back to the client */
+    // size_t fread(void *buffer, size_t size, size_t count, FILE *stream);
+    for(i = 0; i < byte_written; (i+=BUFLEN)) {
+        read_size = fread(buf, sizeof(char), BUFLEN, fp);
+        send(fd_accept, buf, read_size, 0);
+        printf("Send back to client: %c read_size: %d fp: %p\n", buf[0], read_size, fp);
+    }
+
+    return;
+}
+
+int log_client_info(struct sockaddr * p_sockaddr, socklen_t size) {
+    char client_address[INET_ADDRSTRLEN];
+
+    // Determine ipv4 or ipv6
+    if (p_sockaddr->sa_family == AF_INET) {
+	// if ipv4
+        struct sockaddr_in* p_sockaddr_in = (struct sockaddr_in*) p_sockaddr;
+        inet_ntop(AF_INET,(const void*) &p_sockaddr_in->sin_addr, client_address, size); 
+    } else {
+	struct sockaddr_in6* p_sockaddr_in6;
+        p_sockaddr_in6 = (struct sockaddr_in6*) p_sockaddr;
+        inet_ntop(AF_INET6, (const void*) &p_sockaddr_in6->sin6_addr, client_address, size);
+    }
+    
+    printf("Connection from address: %s\n", client_address);
+    syslog(LOG_INFO, "Accepted connection from %s", client_address);
+
+    return(1);
+}
+
 int main(void)
 {
     /* socket server for assignment 5 part 1 */
     
     int ret = 0;
+
+    /* Open file for saving received content */
+    FILE * fp = fopen("/var/tmp/aesdsocketdata", "w");
+    /* File offeset, indicate position where returned to client */
+
+    /* Check file opened or not */
+    if (fp == NULL) {
+        printf("fp is null, exit\n");
+	return(1);
+    }
 
     /* Get addrinfo structure */
     struct addrinfo * addrinfo_ptr = NULL;
@@ -81,47 +132,70 @@ int main(void)
         return(ret);
     }
 
+    /* bytes written to the file */
+    int byte_written = 0;
+    int fd_accept; 
     /* accept a connection on a socket */
-    struct sockaddr * client_addr = NULL;
+    struct sockaddr_storage client_addr;
     socklen_t client_num = sizeof(struct sockaddr);
-    int fd_accept = accept(socket_fd, client_addr, &client_num); 
 
-    /* accept() also returns -1 on error. check error */
-    if (ret == -1) {
-	printf("accept() failed!\n");
-        return(ret);
+    /* main accept loop */
+    while (1) {
+        fd_accept = accept(socket_fd, (struct sockaddr*)&client_addr, &client_num);
+
+        /* accept() also returns -1 on error. check error */
+        if (ret == -1) {
+            printf("accept() failed!\n");
+            return(ret);
+        }
+
+        /* Log connected client information */
+        printf("value of client_addr: 0x%llx\n", client_addr);
+        ret = log_client_info((struct sockaddr*)&client_addr, client_num);
+
+        /* Allocate buffer for socket operation */
+        char buf[BUFLEN];
+
+        /* receive until newline received */
+	while(1) {
+            /* receive over socket */
+            ret = recv(fd_accept, buf, BUFLEN-1, 0);
+     
+            printf("buffer received: %s\n", buf);
+            /* recv() returns -1 on error; returns number of bytes actually read into the buffer */
+            /* check if error is occured */
+            if (ret == -1) {
+                printf("recv() failed!\n");
+                return(ret);
+            }
+     
+            /* send back received message to the client */
+            printf("len: %d\n", ret);
+            int i=0;
+            for(i = 0; i < ret; i++)
+            {
+                printf("%d ", buf[i]);
+            }
+            printf("\n-------------\n");
+
+            /* Write received message to the file */
+            fwrite(buf, ret, 1, fp); 
+
+            /* Increase received size */
+            byte_written += ret;
+	    
+            /* send back received message to the client */
+	    if (strchr(buf, '\n') != NULL) {
+		fflush(fp);
+	        send_file_to_client(fp, byte_written, fd_accept);
+            }
+            
+	    break;
+        }
     }
-
-    /* Allocate buffer for socket operation */
-    char buf[BUFLEN];
-
-    /* receive over socket */
-    ret = recv(fd_accept, buf, BUFLEN, 0);
-
-    printf("buffer received: %s\n", buf);
-    /* recv() returns -1 on error; returns number of bytes actually read into the buffer */
-    /* check if error is occured */
-    if (ret == -1) {
-	printf("recv() failed!\n");
-        return(ret);
-    }
-
-    /* send back received message to the client */
-    buf[BUFLEN] = '\0';
-    int len = strlen(buf);
-    printf("len: %d\n", len);
-    int i=0;
-    for(i = 0; i < len; i++)
-    {
-        printf("%d ", buf[i]);
-    }
-    printf("\n-------------\n");
-    int bytes_sent = send(fd_accept, buf, len, 0);
     
-    printf("bytes sent: %d\n", bytes_sent);
-
-
     /* close file descriptor */
+    fclose(fp);
     shutdown(fd_accept, 2);
     shutdown(socket_fd, 2);
     close(socket_fd);
