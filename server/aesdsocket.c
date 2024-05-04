@@ -252,6 +252,11 @@ int main(int argc, char ** argv)
     close(socket_fd);
     close(fd_accept);
 
+    /* remove temp file */
+    if (remove(TEMP_PATH) == 0) {
+        printf("removed successfully\n");
+    }
+
     printf("Exit...\n");
     /* return 0 to indicate success */
     return 0;
