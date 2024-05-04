@@ -20,12 +20,10 @@
 
 void send_file_to_client(int byte_written, int fd_accept) {
     FILE * fp = fopen(TEMP_PATH, "r");
-    char buf[1];
+    char buf[2];
     int read_size = 0;
     int i = 0;
 
-    printf("Bytes to send: %d sizeofchar: %ld\n", byte_written, sizeof(char));
-   
     /* send back to the client */
     for(i = 0; i < byte_written; i++) {
         read_size = fread(buf, 1, 1, fp);
@@ -35,8 +33,7 @@ void send_file_to_client(int byte_written, int fd_accept) {
     return;
 }
 
-int log_client_info(struct sockaddr * p_sockaddr, socklen_t size) {
-    char client_address[INET_ADDRSTRLEN];
+void get_client_info(struct sockaddr * p_sockaddr, socklen_t size, char* client_address) {
 
     // Determine ipv4 or ipv6
     if (p_sockaddr->sa_family == AF_INET) {
@@ -48,17 +45,29 @@ int log_client_info(struct sockaddr * p_sockaddr, socklen_t size) {
         p_sockaddr_in6 = (struct sockaddr_in6*) p_sockaddr;
         inet_ntop(AF_INET6, (const void*) &p_sockaddr_in6->sin6_addr, client_address, size);
     }
-    
-    printf("Connection from address: %s\n", client_address);
-    syslog(LOG_INFO, "Accepted connection from %s", client_address);
-
-    return(1);
+    return;
 }
 
-int main(void)
+int main(int argc, char ** argv)
 {
     /* socket server for assignment 5 part 1 */
     
+    /* Variable to enable daemon mode */
+    int enable_daemon = 0;
+
+    /* get option */
+    int c;
+    while((c = getopt(argc, argv, "d")) != -1) {
+        switch(c){
+	        case 'd':
+		    enable_daemon = 1; 
+		    break;
+                default:
+		    printf("Please check option\n");
+	            exit(1);
+        }
+    }
+
     int ret = 0;
 
     /* Open file for saving received content */
@@ -90,6 +99,28 @@ int main(void)
         return(ret); // exit if ret != 0
     }
 
+    /* port 9000 is available. Fork if daemon is enabled */
+    if (enable_daemon) {
+        int pid;
+        pid = fork();
+        
+	if (pid == -1) // error occured
+	{
+	    printf("Failed to fork, exit!\n");
+	    syslog(LOG_PERROR, "Failed to fork, exit\n");
+	    exit(1);
+	} else if (pid == 0) // child process, datach from parent
+        {
+            printf("This is child process, continue..\n");
+            if (setsid() == -1) {
+	    }
+	} else { 
+            // this is parent process
+	    // exit with success
+	    exit(0);
+        }
+    } 
+    
     /* Get socket_fd */
     int socket_fd = socket(addrinfo_ptr->ai_family, addrinfo_ptr->ai_socktype, addrinfo_ptr->ai_protocol);
 
@@ -149,7 +180,9 @@ int main(void)
         }
 
         /* Log connected client information */
-        ret = log_client_info((struct sockaddr*)&client_addr, client_num);
+	char client_address[INET_ADDRSTRLEN];
+        get_client_info((struct sockaddr*)&client_addr, client_num, client_address);
+	printf("Accepted connection from %s\n", client_address);
 
         /* Allocate buffer for socket operation */
         char buf[BUFLEN];
@@ -160,7 +193,6 @@ int main(void)
             /* receive over socket */
             ret = recv(fd_accept, buf, BUFLEN-1, 0);
      
-            printf("buffer received: %s\n", buf);
             /* recv() returns -1 on error; returns number of bytes actually read into the buffer */
             /* check if error is occured */
             if (ret == -1) {
@@ -168,15 +200,6 @@ int main(void)
                 return(ret);
             }
      
-            /* send back received message to the client */
-            printf("len: %d\n", ret);
-            int i=0;
-            for(i = 0; i < ret; i++)
-            {
-                printf("%c ", buf[i]);
-            }
-            printf("\n-------------\n");
-
             /* Write received message to the file */
             fwrite(buf, ret, 1, fp); 
 
