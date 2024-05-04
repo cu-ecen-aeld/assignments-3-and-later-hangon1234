@@ -1,8 +1,10 @@
 #define _POSIX_C_SOURCE 200112L
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 #include <errno.h>
 #include <syslog.h>
 #include <sys/types.h>
@@ -17,6 +19,9 @@
 #define TEMP_PATH "/var/tmp/aesdsocketdata"
 
 // reference: https://beej.us/guide/bgnet/html/#socket
+
+// will be TRUE if SIGINT or SIGTERM is received
+static bool EXIT_SIGNAL = 0;
 
 void send_file_to_client(int byte_written, int fd_accept) {
     FILE * fp = fopen(TEMP_PATH, "r");
@@ -48,12 +53,35 @@ void get_client_info(struct sockaddr * p_sockaddr, socklen_t size, char* client_
     return;
 }
 
+static void sigint_handler(int signo)
+{
+    if (signo == SIGINT || signo == SIGTERM) {
+        syslog(LOG_USER, "Caught signal, exiting\n");
+	// enable EXIT_SIGNAL to true to gracefully terminate the program
+	EXIT_SIGNAL = true;
+    } else {
+        // this should not happen
+	exit(EXIT_FAILURE);
+    }
+}
+
 int main(int argc, char ** argv)
 {
     /* socket server for assignment 5 part 1 */
     
     /* Variable to enable daemon mode */
     int enable_daemon = 0;
+
+    /* register signal_handler */
+    if (signal(SIGTERM, sigint_handler) == SIG_ERR) {
+        printf("SIGTERM register failed!\n");
+	exit(EXIT_FAILURE);
+    }
+
+    if (signal(SIGINT, sigint_handler) == SIG_ERR) {
+         printf("SIGINT register failed!\n");
+	 exit(EXIT_FAILURE);
+    }
 
     /* get option */
     int c;
@@ -164,13 +192,14 @@ int main(int argc, char ** argv)
 
     /* bytes written to the file */
     int byte_written = 0;
-    int fd_accept; 
+    int fd_accept = 0; 
     /* accept a connection on a socket */
     struct sockaddr_storage client_addr;
     socklen_t client_num = sizeof(struct sockaddr);
 
     /* main accept loop */
-    while (1) {
+    while (EXIT_SIGNAL == false) {
+
         fd_accept = accept(socket_fd, (struct sockaddr*)&client_addr, &client_num);
 
         /* accept() also returns -1 on error. check error */
@@ -182,6 +211,7 @@ int main(int argc, char ** argv)
         /* Log connected client information */
 	char client_address[INET_ADDRSTRLEN];
         get_client_info((struct sockaddr*)&client_addr, client_num, client_address);
+        syslog(LOG_USER, "Accepted connection from %s\n", client_address);
 	printf("Accepted connection from %s\n", client_address);
 
         /* Allocate buffer for socket operation */
@@ -189,7 +219,7 @@ int main(int argc, char ** argv)
         buf[BUFLEN] = '\0';
 
         /* receive until newline received */
-	while(1) {
+	while(EXIT_SIGNAL == false) {
             /* receive over socket */
             ret = recv(fd_accept, buf, BUFLEN-1, 0);
      
@@ -222,6 +252,7 @@ int main(int argc, char ** argv)
     close(socket_fd);
     close(fd_accept);
 
+    printf("Exit...\n");
     /* return 0 to indicate success */
     return 0;
 }
