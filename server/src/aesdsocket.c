@@ -1,27 +1,11 @@
 #define _POSIX_C_SOURCE 200112L
 
-#include <stdio.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <signal.h>
-#include <errno.h>
-#include <syslog.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <string.h>
-
-#define BUFLEN 128 
-#define BACKLOG 10 // maximum pending connections in the queue
-#define MYPORT "9000"
-#define TEMP_PATH "/var/tmp/aesdsocketdata"
+#include "aesdsocket.h"
 
 // reference: https://beej.us/guide/bgnet/html/#socket
 
 // will be TRUE if SIGINT or SIGTERM is received
-static bool EXIT_SIGNAL = 0;
+bool EXIT_SIGNAL;
 
 void send_file_to_client(int byte_written, int fd_accept) {
     FILE * fp = fopen(TEMP_PATH, "r");
@@ -35,21 +19,6 @@ void send_file_to_client(int byte_written, int fd_accept) {
         send(fd_accept, buf, read_size, 0);
     }
 
-    return;
-}
-
-void get_client_info(struct sockaddr * p_sockaddr, socklen_t size, char* client_address) {
-
-    // Determine ipv4 or ipv6
-    if (p_sockaddr->sa_family == AF_INET) {
-	// if ipv4
-        struct sockaddr_in* p_sockaddr_in = (struct sockaddr_in*) p_sockaddr;
-        inet_ntop(AF_INET,(const void*) &p_sockaddr_in->sin_addr, client_address, size); 
-    } else {
-	struct sockaddr_in6* p_sockaddr_in6;
-        p_sockaddr_in6 = (struct sockaddr_in6*) p_sockaddr;
-        inet_ntop(AF_INET6, (const void*) &p_sockaddr_in6->sin6_addr, client_address, size);
-    }
     return;
 }
 
@@ -69,6 +38,12 @@ int main(int argc, char ** argv)
 {
     /* socket server for assignment 5 part 1 */
     
+    /* Initialize global variable */
+    EXIT_SIGNAL = 0;
+
+    /* initialize mutex */
+    pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
     /* Variable to enable daemon mode */
     int enable_daemon = 0;
 
@@ -136,16 +111,16 @@ int main(int argc, char ** argv)
 	{
 	    printf("Failed to fork, exit!\n");
 	    syslog(LOG_PERROR, "Failed to fork, exit\n");
-	    exit(1);
+	    exit(RETCODE_FAILURE);
 	} else if (pid == 0) // child process, datach from parent
         {
             printf("This is child process, continue..\n");
             if (setsid() == -1) {
 	    }
 	} else { 
-            // this is parent process
+        // this is parent process
 	    // exit with success
-	    exit(0);
+	    exit(RETCODE_SUCCESS);
         }
     } 
     
@@ -166,7 +141,7 @@ int main(int argc, char ** argv)
     int yes = 1;
     if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
         perror("setsockopt error");
-	exit(1);
+        exit(1);
     }
 
     /* use bind to assign address */
@@ -193,14 +168,18 @@ int main(int argc, char ** argv)
     /* bytes written to the file */
     int byte_written = 0;
     int fd_accept = 0; 
-    /* accept a connection on a socket */
-    struct sockaddr_storage client_addr;
-    socklen_t client_num = sizeof(struct sockaddr);
+   socklen_t client_num = sizeof(struct sockaddr);
 
     /* main accept loop */
     while (EXIT_SIGNAL == false) {
-
+        /* accept a connection on a socket */
+        struct sockaddr_storage client_addr;
+ 
         fd_accept = accept(socket_fd, (struct sockaddr*)&client_addr, &client_num);
+
+        /* Log connected client information */
+        char client_address[INET_ADDRSTRLEN];
+        get_client_info((struct sockaddr*)&client_addr, client_num, client_address);
 
         /* accept() also returns -1 on error. check error */
         if (ret == -1) {
@@ -208,41 +187,21 @@ int main(int argc, char ** argv)
             return(ret);
         }
 
-        /* Log connected client information */
-	char client_address[INET_ADDRSTRLEN];
-        get_client_info((struct sockaddr*)&client_addr, client_num, client_address);
-        syslog(LOG_USER, "Accepted connection from %s\n", client_address);
-	printf("Accepted connection from %s\n", client_address);
-
-        /* Allocate buffer for socket operation */
-        char buf[BUFLEN];
-        buf[BUFLEN] = '\0';
-
-        /* receive until newline received */
-	while(EXIT_SIGNAL == false) {
-            /* receive over socket */
-            ret = recv(fd_accept, buf, BUFLEN-1, 0);
-     
-            /* recv() returns -1 on error; returns number of bytes actually read into the buffer */
-            /* check if error is occured */
-            if (ret == -1) {
-                printf("recv() failed!\n");
-                return(ret);
-            }
-     
-            /* Write received message to the file */
-            fwrite(buf, ret, 1, fp); 
-
-            /* Increase received size */
-            byte_written += ret;
-	    
-            /* send back received message to the client */
-	    if (strchr(buf, '\n') != NULL) {
-		fflush(fp);
-	        send_file_to_client(byte_written, fd_accept);
-	        break;
-            }
+        // allocate thread data
+        thread_data * p_thread_data = malloc(sizeof(thread_data));
+        if (p_thread_data == NULL){
+            printf("malloc() failed!\n");
+            return(RETCODE_FAILURE);
         }
+        p_thread_data->mutex = &mutex;
+        p_thread_data->fd_accept = fd_accept;
+        strncpy(p_thread_data->client_address, client_address, INET_ADDRSTRLEN);
+        p_thread_data->fp = fp;
+
+        // start new thread
+        pthread_t thread;
+        ret = pthread_create(&thread, NULL, thread_socket_receive, p_thread_data);
+        
     }
     
     /* close file descriptor */
@@ -259,5 +218,5 @@ int main(int argc, char ** argv)
 
     printf("Exit...\n");
     /* return 0 to indicate success */
-    return 0;
+    return RETCODE_SUCCESS;
 }
