@@ -7,20 +7,7 @@
 // will be TRUE if SIGINT or SIGTERM is received
 bool EXIT_SIGNAL;
 
-void send_file_to_client(int byte_written, int fd_accept) {
-    FILE * fp = fopen(TEMP_PATH, "r");
-    char buf[2];
-    int read_size = 0;
-    int i = 0;
 
-    /* send back to the client */
-    for(i = 0; i < byte_written; i++) {
-        read_size = fread(buf, 1, 1, fp);
-        send(fd_accept, buf, read_size, 0);
-    }
-
-    return;
-}
 
 static void sigint_handler(int signo)
 {
@@ -63,11 +50,11 @@ int main(int argc, char ** argv)
     while((c = getopt(argc, argv, "d")) != -1) {
         switch(c){
 	        case 'd':
-		    enable_daemon = 1; 
-		    break;
-                default:
-		    printf("Please check option\n");
-	            exit(1);
+        	    enable_daemon = 1; 
+        	    break;
+            default:
+                printf("Please check option\n");
+                exit(1);
         }
     }
 
@@ -149,7 +136,7 @@ int main(int argc, char ** argv)
     
     /* bind() also returns -1 on error. check error */
     if (ret == -1) {
-	printf("bind() failed!\n");
+        printf("bind() failed!\n");
         return(ret);
     }
 
@@ -161,14 +148,17 @@ int main(int argc, char ** argv)
     
     /* listen() also returns -1 on error. check error */
     if (ret == -1) {
-	printf("listen() failed!\n");
+        printf("listen() failed!\n");
         return(ret);
     }
 
-    /* bytes written to the file */
-    int byte_written = 0;
+    /* file descriptor */
     int fd_accept = 0; 
-   socklen_t client_num = sizeof(struct sockaddr);
+    socklen_t client_num = sizeof(struct sockaddr);
+
+    /* Initialize linked list */
+    head_t head;
+    TAILQ_INIT(&head);
 
     /* main accept loop */
     while (EXIT_SIGNAL == false) {
@@ -176,17 +166,16 @@ int main(int argc, char ** argv)
         struct sockaddr_storage client_addr;
  
         fd_accept = accept(socket_fd, (struct sockaddr*)&client_addr, &client_num);
-
-        /* Log connected client information */
-        char client_address[INET_ADDRSTRLEN];
-        get_client_info((struct sockaddr*)&client_addr, client_num, client_address);
-
-        /* accept() also returns -1 on error. check error */
+        
         if (ret == -1) {
             printf("accept() failed!\n");
             return(ret);
         }
 
+        /* Log connected client information */
+        char client_address[INET_ADDRSTRLEN];
+        get_client_info((struct sockaddr*)&client_addr, client_num, client_address);
+   
         // allocate thread data
         thread_data * p_thread_data = malloc(sizeof(thread_data));
         if (p_thread_data == NULL){
@@ -197,19 +186,36 @@ int main(int argc, char ** argv)
         p_thread_data->fd_accept = fd_accept;
         strncpy(p_thread_data->client_address, client_address, INET_ADDRSTRLEN);
         p_thread_data->fp = fp;
-
+   
         // start new thread
         pthread_t thread;
-        ret = pthread_create(&thread, NULL, thread_socket_receive, p_thread_data);
-        
+        ret = pthread_create(&thread, NULL, (void*)thread_socket_receive, p_thread_data);
+        if (ret != 0 ){
+            printf("pthread_create() failed!\n");
+            return(RETCODE_FAILURE);
+        } 
+   
+        /* Insert thread information to the linked list */
+        struct node * p_node = NULL;
+        p_node = malloc(sizeof(struct node));
+        p_node->thread = thread;
+        p_node->thread_exit = &p_thread_data->thread_exit;
+        TAILQ_INSERT_TAIL(&head, p_node, nodes);
+        p_node = NULL;
+      
+        check_thread_exit(&head);
     }
     
+    /* stop all thread */
+    release_all_thread(&head);
+
     /* close file descriptor */
     fclose(fp);
-    shutdown(fd_accept, 2);
     shutdown(socket_fd, 2);
     close(socket_fd);
-    close(fd_accept);
+
+    /* remove mutex */
+    pthread_mutex_destroy(&mutex);
 
     /* remove temp file */
     if (remove(TEMP_PATH) == 0) {

@@ -1,6 +1,46 @@
 #include "aesdsocket.h"
+#include "queue.h"
 
 extern bool EXIT_SIGNAL;
+
+void send_file_to_client(int byte_written, int fd_accept) {
+    FILE * fp = fopen(TEMP_PATH, "r");
+    char buf[2];
+    int read_size = 0;
+    int i = 0;
+
+    /* send back to the client */
+    for(i = 0; i < byte_written; i++) {
+        read_size = fread(buf, 1, 1, fp);
+        send(fd_accept, buf, read_size, 0);
+    }
+
+    return;
+}
+
+void check_thread_exit(head_t * head) {
+    struct node* p_node;
+    TAILQ_FOREACH(p_node, head, nodes)
+    {
+        if (p_node->thread_exit == true) {
+            // Thread is terminated
+            pthread_join(p_node->thread, NULL);
+        }
+    }
+    return;
+}
+
+void release_all_thread(head_t * head) {
+    struct node * p_node;
+    while(!TAILQ_EMPTY(head)) {
+        p_node = TAILQ_FIRST(head);
+        pthread_join(p_node->thread, NULL);
+        TAILQ_REMOVE(head, p_node, nodes);
+        free(p_node);
+    }
+
+}
+
 
 void get_client_info(struct sockaddr * p_sockaddr, socklen_t size, char* client_address) {
 
@@ -10,7 +50,7 @@ void get_client_info(struct sockaddr * p_sockaddr, socklen_t size, char* client_
         struct sockaddr_in* p_sockaddr_in = (struct sockaddr_in*) p_sockaddr;
         inet_ntop(AF_INET,(const void*) &p_sockaddr_in->sin_addr, client_address, size); 
     } else {
-	struct sockaddr_in6* p_sockaddr_in6;
+        struct sockaddr_in6* p_sockaddr_in6;
         p_sockaddr_in6 = (struct sockaddr_in6*) p_sockaddr;
         inet_ntop(AF_INET6, (const void*) &p_sockaddr_in6->sin6_addr, client_address, size);
     }
@@ -20,6 +60,7 @@ void get_client_info(struct sockaddr * p_sockaddr, socklen_t size, char* client_
 // thread handling
 void thread_socket_receive(thread_data* thread_param) {
     int ret = 0;
+    int byte_written = 0;
 
     syslog(LOG_USER, "Accepted connection from %s\n", thread_param->client_address);
     printf("Accepted connection from %s\n", thread_param->client_address);
@@ -37,17 +78,37 @@ void thread_socket_receive(thread_data* thread_param) {
         /* check if error is occured */
         if (ret == -1) {
             printf("recv() failed!\n");
-            thread_param->thread_exit_status = false;
-            return;
+            thread_param->thread_exit = true;
+            pthread_mutex_unlock(thread_param->mutex);
+            pthread_exit(0);
         }
     
+        /* get a lock to prevent interleaving output from thread */
+        pthread_mutex_lock(thread_param->mutex);
+
         /* Write received message to the file */
         fwrite(buf, ret, 1, thread_param->fp); 
+        byte_written += ret;
 
-        /* send back received message to the client */
         if (strchr(buf, '\n') != NULL) {
             fflush(thread_param->fp);
             break;
         }
     }
+
+    /* Send received data back to client */
+    send_file_to_client(byte_written, thread_param->fd_accept);
+
+    /* close file descriptor */
+    shutdown(thread_param->fd_accept, 2);
+    close(thread_param->fd_accept);
+
+    /* release mutex */
+    pthread_mutex_unlock(thread_param->mutex);
+
+    /* exit thread */
+    thread_param->thread_exit = true;
+    pthread_exit(0);
+
+    return;
 }
