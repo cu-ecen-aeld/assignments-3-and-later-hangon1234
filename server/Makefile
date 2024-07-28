@@ -2,14 +2,25 @@
 CFLAGS = -g -Wall -Og -std=c99 
 LDFLAGS = 
 CC = $(CROSS_COMPILE)gcc
+TARGET_EXEC := aesdsocket
+BUILD_DIR := ./build
+SRC_DIRS := ./src
+SRCS := $(shell find $(SRC_DIRS) -name '*.cpp' -or -name '*.c' -or -name '*.s')
+OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
+INC_DIRS := $(shell find $(SRC_DIRS) -type d)
+INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
-all: aesdsocket
- 
-aesdsocket: aesdsocket.o
-	$(CC) $< -o $@
+# The final build step.
+$(TARGET_EXEC): $(OBJS)
+	$(CXX) $(OBJS) -o $@ $(LDFLAGS)
 
-aesdsocket.o: aesdsocket.c
+# Build step for C source
+$(BUILD_DIR)/%.c.o: %.c
+	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+all:$(TARGET_EXEC)
+
+.PHONY: clean
 clean:
-	rm -f *.o *.elf *.bin 
+	rm -r $(BUILD_DIR)
