@@ -70,6 +70,38 @@ int main(int argc, char ** argv)
 	return(1);
     }
 
+    /* timer thread uses same mutex and file */
+    thread_data * p_timer_thread_data = malloc(sizeof(thread_data));
+    p_timer_thread_data->mutex = &mutex;
+    p_timer_thread_data->fp = fp;
+    timer_t timerid;
+
+    /* Initialize struct for timer */
+    struct sigevent sev;
+    sev.sigev_notify = SIGEV_THREAD;
+    sev.sigev_value.sival_ptr = &p_timer_thread_data;
+    sev.sigev_notify_function = timer_thread;
+
+    /* Start posix timer which runs every 10 seconds */
+    if (timer_create(CLOCK_MONOTONIC, &sev, &timerid) != 0) {
+        printf("Failed to create timer! errno: %d (%s)\n", errno, strerror(errno));
+        syslog(LOG_PERROR, "Failed to create timer! exit...\n");
+        exit(RETCODE_FAILURE);
+    } else {
+        /* sleep every 2 seconds */
+        struct timespec sleep_time;
+        sleep_time.tv_sec = 2;
+
+        /* Store current time */
+        struct timespec start_time;
+        if(clock_gettime(CLOCK_MONOTONIC, &start_time) != 0) {
+            printf("Error %d %s getting clock\n", errno, strerror(errno));
+            syslog(LOG_PERROR, "Failed to get current time! exit...\n");
+            exit(RETCODE_FAILURE);
+            // TODO
+        } 
+    }
+
     /* Get addrinfo structure */
     struct addrinfo * addrinfo_ptr = NULL;
     struct addrinfo hints;

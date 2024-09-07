@@ -3,6 +3,8 @@
 #ifndef _aesdsocket
 #define _aesdsocket
 
+#include <time.h>
+#include <signal.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -13,7 +15,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <signal.h>
 #include <errno.h>
 #include <syslog.h>
 #include "queue.h"
@@ -44,5 +45,6 @@ void thread_socket_receive(thread_data* thread_param);
 void get_client_info(struct sockaddr * p_sockaddr, socklen_t size, char* client_address);
 void check_thread_exit(head_t * head); 
 void release_all_thread(head_t * head);
+void timer_thread(union sigval sigval);
 
 #endif /* _aesdsocket */

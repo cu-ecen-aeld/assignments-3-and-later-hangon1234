@@ -3,23 +3,22 @@
 
 extern bool EXIT_SIGNAL;
 
-void send_file_to_client(int byte_written, int fd_accept) {
+void send_file_to_client(int fd_accept) {
     FILE * fp = fopen(TEMP_PATH, "r");
-    char buf[2];
-    int read_size = 0;
-    int i = 0;
+    int ch;
 
     /* send back to the client */
-    for(i = 0; i < byte_written; i++) {
-        read_size = fread(buf, 1, 1, fp);
-        send(fd_accept, buf, read_size, 0);
+    while ((ch = fgetc(fp)) != EOF) {
+        send(fd_accept, &ch, 1, 0);
     }
+                
+    fclose(fp);
 
     return;
 }
 
 void check_thread_exit(head_t * head) {
-    struct node* p_node;
+    node_t * p_node;
     TAILQ_FOREACH(p_node, head, nodes)
     {
         if (p_node->thread_exit == true) {
@@ -69,8 +68,12 @@ void thread_socket_receive(thread_data* thread_param) {
     char buf[BUFLEN];
     buf[BUFLEN] = '\0';
 
+    /* get a lock to prevent interleaving output from thread */
+    pthread_mutex_lock(thread_param->mutex);
+
     /* receive until newline received */
     while(EXIT_SIGNAL == false) {
+
         /* receive over socket */
         ret = recv(thread_param->fd_accept, buf, BUFLEN-1, 0);
     
@@ -82,10 +85,7 @@ void thread_socket_receive(thread_data* thread_param) {
             pthread_mutex_unlock(thread_param->mutex);
             pthread_exit(0);
         }
-    
-        /* get a lock to prevent interleaving output from thread */
-        pthread_mutex_lock(thread_param->mutex);
-
+        
         /* Write received message to the file */
         fwrite(buf, ret, 1, thread_param->fp); 
         byte_written += ret;
@@ -97,7 +97,7 @@ void thread_socket_receive(thread_data* thread_param) {
     }
 
     /* Send received data back to client */
-    send_file_to_client(byte_written, thread_param->fd_accept);
+    send_file_to_client(thread_param->fd_accept);
 
     /* close file descriptor */
     shutdown(thread_param->fd_accept, 2);
