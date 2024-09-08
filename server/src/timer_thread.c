@@ -3,5 +3,5 @@
 
 void timer_thread(union sigval sigval)
 {
-;
+    printf("Timer is working!!\n");
 }

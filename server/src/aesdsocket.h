@@ -3,8 +3,8 @@
 #ifndef _aesdsocket
 #define _aesdsocket
 
-#include <time.h>
 #include <signal.h>
+#include <time.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -24,6 +24,20 @@
 #define TEMP_PATH "/var/tmp/aesdsocketdata"
 #define RETCODE_SUCCESS 0
 #define RETCODE_FAILURE 1
+
+/**
+* set @param result with @param ts_1 + @param ts_2
+*/
+static inline void timespec_add( struct timespec *result,
+                        const struct timespec *ts_1, const struct timespec *ts_2)
+{
+    result->tv_sec = ts_1->tv_sec + ts_2->tv_sec;
+    result->tv_nsec = ts_1->tv_nsec + ts_2->tv_nsec;
+    if( result->tv_nsec > 1000000000L ) {
+        result->tv_nsec -= 1000000000L;
+        result->tv_sec ++;
+    }
+}
 
 typedef struct thread_data {
     bool thread_exit; // true if terminated

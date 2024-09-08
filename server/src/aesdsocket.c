@@ -37,12 +37,12 @@ int main(int argc, char ** argv)
     /* register signal_handler */
     if (signal(SIGTERM, sigint_handler) == SIG_ERR) {
         printf("SIGTERM register failed!\n");
-	exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
 
     if (signal(SIGINT, sigint_handler) == SIG_ERR) {
          printf("SIGINT register failed!\n");
-	 exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
 
     /* get option */
@@ -82,24 +82,32 @@ int main(int argc, char ** argv)
     sev.sigev_value.sival_ptr = &p_timer_thread_data;
     sev.sigev_notify_function = timer_thread;
 
-    /* Start posix timer which runs every 10 seconds */
+    /* Create itimer */
     if (timer_create(CLOCK_MONOTONIC, &sev, &timerid) != 0) {
         printf("Failed to create timer! errno: %d (%s)\n", errno, strerror(errno));
         syslog(LOG_PERROR, "Failed to create timer! exit...\n");
         exit(RETCODE_FAILURE);
     } else {
-        /* sleep every 2 seconds */
-        struct timespec sleep_time;
-        sleep_time.tv_sec = 2;
-
         /* Store current time */
-        struct timespec start_time;
+        struct timespec start_tim;
         if(clock_gettime(CLOCK_MONOTONIC, &start_time) != 0) {
             printf("Error %d %s getting clock\n", errno, strerror(errno));
             syslog(LOG_PERROR, "Failed to get current time! exit...\n");
             exit(RETCODE_FAILURE);
-            // TODO
         } 
+
+        /* timer works every 10 seconds */
+        struct itimerspec itimerspec;
+        memset(&itimerspec, 0, sizeof(struct itimerspec));
+        itimerspec.it_interval.tv_sec = 10;
+
+        /* add 10 sec from start time */
+        timespec_add(&itimerspec.it_value, &start_time, &itimerspec.it_interval);
+        if (timer_settime(timerid, TIMER_ABSTIME, &itimerspec, NULL) != 0) {
+            printf("Error %d (%s) setting timer!\n", errno, strerror(errno));
+            syslog(LOG_PERROR, "Failed to set timer! exit...\n");
+            exit(RETCODE_FAILURE);
+        }
     }
 
     /* Get addrinfo structure */
