@@ -78,8 +78,9 @@ int main(int argc, char ** argv)
 
     /* Initialize struct for timer */
     struct sigevent sev;
+    memset(&sev, 0, sizeof(struct sigevent));
     sev.sigev_notify = SIGEV_THREAD;
-    sev.sigev_value.sival_ptr = &p_timer_thread_data;
+    sev.sigev_value.sival_ptr = p_timer_thread_data;
     sev.sigev_notify_function = timer_thread;
 
     /* Create itimer */
@@ -89,7 +90,7 @@ int main(int argc, char ** argv)
         exit(RETCODE_FAILURE);
     } else {
         /* Store current time */
-        struct timespec start_tim;
+        struct timespec start_time;
         if(clock_gettime(CLOCK_MONOTONIC, &start_time) != 0) {
             printf("Error %d %s getting clock\n", errno, strerror(errno));
             syslog(LOG_PERROR, "Failed to get current time! exit...\n");
