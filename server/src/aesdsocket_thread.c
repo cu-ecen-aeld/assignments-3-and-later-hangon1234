@@ -68,7 +68,7 @@ void thread_socket_receive(thread_data* thread_param) {
     char buf[BUFLEN];
     buf[BUFLEN] = '\0';
 
-    /* get a lock to prevent interleaving output from thread */
+    /* get a lock to prevent interleaving output from timer thread */
     pthread_mutex_lock(thread_param->mutex);
 
     /* receive until newline received */
