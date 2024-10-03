@@ -1,7 +1,7 @@
 
-CFLAGS = -g -Wall -Og
-LDFLAGS = -lrt
-CC = $(CROSS_COMPILE)gcc
+CFLAGS ?= -g -Wall -Og
+LDFLAGS ?= -lrt
+CC ?= $(CROSS_COMPILE)gcc
 TARGET_EXEC := aesdsocket
 BUILD_DIR := ./build
 SRC_DIRS := ./src
