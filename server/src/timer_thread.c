@@ -23,6 +23,7 @@ void timer_thread(union sigval sigval)
     /* Write timestamp to the file */
     fwrite(buf, timestamp_length, 1, td->fp);
 
+    printf("Debugging: timer_thread is working\n");
     /* Release lock */
     pthread_mutex_unlock(td->mutex);
 }
