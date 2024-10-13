@@ -99,6 +99,7 @@ void thread_socket_receive(thread_data* thread_param) {
     /* Send received data back to client */
     send_file_to_client(thread_param->fd_accept);
 
+    printf("Send back to client!\n");
     /* close file descriptor */
     shutdown(thread_param->fd_accept, 2);
     close(thread_param->fd_accept);
