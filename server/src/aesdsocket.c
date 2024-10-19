@@ -140,7 +140,7 @@ int main(int argc, char ** argv)
 	    printf("Failed to fork, exit!\n");
 	    syslog(LOG_PERROR, "Failed to fork, exit\n");
 	    exit(RETCODE_FAILURE);
-	} else if (pid == 0) // child process, datach from parent
+	} else if (pid == 0) // child process, detach from parent
         {
             printf("This is child process, continue..\n");
             if (setsid() == -1) {
