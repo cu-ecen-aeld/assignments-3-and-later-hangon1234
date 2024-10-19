@@ -83,34 +83,6 @@ int main(int argc, char ** argv)
     sev.sigev_value.sival_ptr = p_timer_thread_data;
     sev.sigev_notify_function = timer_thread;
 
-    /* Create itimer */
-    if (timer_create(CLOCK_MONOTONIC, &sev, &timerid) != 0) {
-        printf("Failed to create timer! errno: %d (%s)\n", errno, strerror(errno));
-        syslog(LOG_PERROR, "Failed to create timer! exit...\n");
-        exit(RETCODE_FAILURE);
-    } else {
-        /* Store current time */
-        struct timespec start_time;
-        if(clock_gettime(CLOCK_MONOTONIC, &start_time) != 0) {
-            printf("Error %d %s getting clock\n", errno, strerror(errno));
-            syslog(LOG_PERROR, "Failed to get current time! exit...\n");
-            exit(RETCODE_FAILURE);
-        } 
-
-        /* timer works every 10 seconds */
-        struct itimerspec itimerspec;
-        memset(&itimerspec, 0, sizeof(struct itimerspec));
-        itimerspec.it_interval.tv_sec = 10;
-
-        /* add 10 sec from start time */
-        timespec_add(&itimerspec.it_value, &start_time, &itimerspec.it_interval);
-        if (timer_settime(timerid, TIMER_ABSTIME, &itimerspec, NULL) != 0) {
-            printf("Error %d (%s) setting timer!\n", errno, strerror(errno));
-            syslog(LOG_PERROR, "Failed to set timer! exit...\n");
-            exit(RETCODE_FAILURE);
-        }
-    }
-
     /* Get addrinfo structure */
     struct addrinfo * addrinfo_ptr = NULL;
     struct addrinfo hints;
@@ -151,7 +123,35 @@ int main(int argc, char ** argv)
 	    exit(RETCODE_SUCCESS);
         }
     } 
-    
+
+    /* Create itimer */
+    if (timer_create(CLOCK_MONOTONIC, &sev, &timerid) != 0) {
+        printf("Failed to create timer! errno: %d (%s)\n", errno, strerror(errno));
+        syslog(LOG_PERROR, "Failed to create timer! exit...\n");
+        exit(RETCODE_FAILURE);
+    } else {
+        /* Store current time */
+        struct timespec start_time;
+        if(clock_gettime(CLOCK_MONOTONIC, &start_time) != 0) {
+            printf("Error %d %s getting clock\n", errno, strerror(errno));
+            syslog(LOG_PERROR, "Failed to get current time! exit...\n");
+            exit(RETCODE_FAILURE);
+        } 
+
+        /* timer works every 10 seconds */
+        struct itimerspec itimerspec;
+        memset(&itimerspec, 0, sizeof(struct itimerspec));
+        itimerspec.it_interval.tv_sec = 10;
+
+        /* add 10 sec from start time */
+        timespec_add(&itimerspec.it_value, &start_time, &itimerspec.it_interval);
+        if (timer_settime(timerid, TIMER_ABSTIME, &itimerspec, NULL) != 0) {
+            printf("Error %d (%s) setting timer!\n", errno, strerror(errno));
+            syslog(LOG_PERROR, "Failed to set timer! exit...\n");
+            exit(RETCODE_FAILURE);
+        }
+    }
+   
     /* Get socket_fd */
     int socket_fd = socket(addrinfo_ptr->ai_family, addrinfo_ptr->ai_socktype, addrinfo_ptr->ai_protocol);
 
