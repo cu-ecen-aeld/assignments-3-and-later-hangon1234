@@ -29,9 +29,38 @@
 struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct aesd_circular_buffer *buffer,
             size_t char_offset, size_t *entry_offset_byte_rtn )
 {
-    /**
-    * TODO: implement per description
-    */
+    uint8_t offset = buffer->out_offs;
+
+    // if buffer is full, we just need to check last entry
+    if (buffer->full == true) {
+        // each aesd_buffer_entry size should be less than actual string value
+        // to put NULL
+        if (buffer->entry[offset].size > char_offset) {
+            *entry_offset_byte_rtn = offset;
+            return &buffer->entry[offset];
+        }
+        else {
+            return NULL;
+        }
+    } else {
+        // When it is not full, check until in_offs
+        uint8_t out_offset = buffer->out_offs;
+        uint8_t in_offset = buffer->in_offs;
+
+        while (true) {
+            if (buffer->entry[out_offset].size > char_offset) {
+                *entry_offset_byte_rtn = char_offset;
+                return &buffer->entry[out_offset];
+            } else if (out_offset == in_offset) {
+                // This means aesd_buffer_entry not enough
+                return NULL;
+            } else {
+                char_offset -= buffer->entry[out_offset].size;
+                out_offset = (out_offset + 1) % ENTRY_SIZE;
+            }
+        }
+    }
+    
     return NULL;
 }
 
