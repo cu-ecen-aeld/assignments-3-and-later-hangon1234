@@ -37,7 +37,7 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
         if (buffer->entry[offset].size > char_offset) {
             // Found buffer entry has correct char_offset
             *entry_offset_byte_rtn = char_offset;
-            return buffer->entry[offset];
+            return &buffer->entry[offset];
         } else {
             char_offset = char_offset - buffer->entry[offset].size;
             offset = (offset + 1) % ENTRY_SIZE;
@@ -60,7 +60,7 @@ void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const s
     * TODO: implement per description
     */
     // Insert new entry to the buffer
-    buffer->entry[in_offs] = *add_entry;
+    buffer->entry[buffer->in_offs] = *add_entry;
 
     // Increase buffer offset
     buffer->in_offs = (buffer->in_offs + 1) % ENTRY_SIZE;
