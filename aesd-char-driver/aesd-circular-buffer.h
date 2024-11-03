@@ -18,6 +18,10 @@
 
 #define AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED 10
 
+// I don't like too long define name.
+// Just redefine
+#define ENTRY_SIZE AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED
+
 struct aesd_buffer_entry
 {
     /**
