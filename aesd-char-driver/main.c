@@ -102,7 +102,7 @@ int aesd_init_module(void)
     }
     memset(&aesd_device,0,sizeof(struct aesd_dev));
 
-    mutex_init(aesd_device.lock);
+    mutex_init(&aesd_device.lock);
 
     result = aesd_setup_cdev(&aesd_device);
 
@@ -119,9 +119,8 @@ void aesd_cleanup_module(void)
 
     cdev_del(&aesd_device.cdev);
 
-    /**
-     * TODO: cleanup AESD specific poritions here as necessary
-     */
+    /* Destroy initialized mutex */
+    mutex_deinit(&aesd_device.lock);
 
     unregister_chrdev_region(devno, 1);
 }
