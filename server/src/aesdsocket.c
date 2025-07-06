@@ -218,7 +218,6 @@ int main(int argc, char ** argv)
         get_client_info((struct sockaddr*)&client_addr, client_num, client_address);
    
         // allocate thread data
-        thread_data * p_thread_data = malloc(sizeof(thread_data));
         if (p_thread_data == NULL){
             printf("malloc() failed!\n");
             return(RETCODE_FAILURE);
