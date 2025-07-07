@@ -47,10 +47,15 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
                 loff_t *f_pos)
 {
     ssize_t retval = 0;
+    int i = 0;
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
-    /**
-     * TODO: handle read
-     */
+    struct aesd_dev *dev = (aesd_dev*) filp->private_data;
+    struct aesd_circular_buffer buffer = dev->aesd_circular_buffer;
+    
+    for (i = 0; i < ENTRY_SIZE; i++)
+    {
+    }
+
     return retval;
 }
 
