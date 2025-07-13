@@ -49,12 +49,18 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     ssize_t retval = 0;
     int i = 0;
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
-    struct aesd_dev *dev = (aesd_dev*) filp->private_data;
+    // Retrieve private_data
+    struct aesd_dev *dev = (struct aesd_dev*) filp->private_data;
     struct aesd_circular_buffer buffer = dev->aesd_circular_buffer;
     
-    for (i = 0; i < ENTRY_SIZE; i++)
-    {
-    }
+    // TODO: need appropriate locking 
+    struct aesd_buffer_entry entry = buffer.entry[buffer.out_offs];
+    if (entry.size <= count) {
+        retval = entry.size;
+    } else {
+        retval = count; // still have remaining buffer content 
+    } 
+
 
     return retval;
 }
@@ -107,6 +113,8 @@ int aesd_init_module(void)
     memset(&aesd_device,0,sizeof(struct aesd_dev));
 
     mutex_init(&aesd_device.lock);
+    // Initialize circular buffer
+    aesd_circular_buffer_init(&aesd_device.aesd_circular_buffer);
 
     result = aesd_setup_cdev(&aesd_device);
 
