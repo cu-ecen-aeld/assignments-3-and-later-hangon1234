@@ -53,13 +53,23 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     struct aesd_dev *dev = (struct aesd_dev*) filp->private_data;
     struct aesd_circular_buffer buffer = dev->aesd_circular_buffer;
     
-    // TODO: need appropriate locking 
-    struct aesd_buffer_entry entry = buffer.entry[buffer.out_offs];
-    if (entry.size <= count) {
-        retval = entry.size;
+    // TODO: need to add appropriate locking 
+    // f_pos is char_offset which is a specific position of circular buffer linear content
+    size_t entry_offset_byte_rtn;
+    struct aesd_buffer_entry* entry = aesd_circular_buffer_find_entry_offset_for_fpos(&buffer, *f_pos, &entry_offset_byte_rtn);
+    if (entry != NULL) {
+        if (count <= entry->size) {
+            retval = count; // data is available
+        } else {
+            // only partial data available
+            retval = entry->size;
+        }
     } else {
-        retval = count; // still have remaining buffer content 
-    } 
+        // no data is available
+        retval = 0;
+    }
+    // update f_pos
+    *f_pos = *f_pos + retval;
 
 
     return retval;
