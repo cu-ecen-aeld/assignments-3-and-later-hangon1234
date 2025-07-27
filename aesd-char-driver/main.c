@@ -40,6 +40,7 @@ int aesd_release(struct inode *inode, struct file *filp)
     PDEBUG("release");
     // We initialized aesd_dev.lock in aesd_init_module
     // So nothing need to be released
+    // TODO: free each entry
     return 0;
 }
 
@@ -71,6 +72,8 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     // update f_pos
     *f_pos = *f_pos + retval;
 
+    // Copy buffer to user space
+    copy_to_user(buf, entry->buffptr, entry->size);
 
     return retval;
 }
@@ -83,6 +86,26 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     /**
      * TODO: handle write
      */
+    char* buffer;
+
+    // Retrieve private_data
+    struct aesd_dev *dev = (struct aesd_dev*) filp->private_data;
+    struct aesd_circular_buffer aesd_buffer = dev->aesd_circular_buffer;
+    struct aesd_buffer_entry entry;
+    struct aesd_buffer_entry* entry_ptr;
+
+    buffer = kmalloc(count, GFP_KERNEL);
+    // to, from, count
+    copy_from_user(buffer, buf, count);
+    entry.buffptr = buffer;
+    entry.size = count;
+
+    // Add to the circular buffer
+    entry_ptr = aesd_circular_buffer_add_entry(&aesd_buffer, &entry);
+
+    // Free removed entry
+    kfree(entry_ptr);
+
     return retval;
 }
 struct file_operations aesd_fops = {
