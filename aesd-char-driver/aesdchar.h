@@ -32,8 +32,7 @@ struct aesd_dev
      */
     struct cdev cdev;     /* Char device structure      */
     struct aesd_circular_buffer aesd_circular_buffer; /* circular buffer structure */
-    struct mutex lock; /* locking */
+    struct rw_semaphore sem; /* locking */
 };
-
 
 #endif /* AESD_CHAR_DRIVER_AESDCHAR_H_ */
