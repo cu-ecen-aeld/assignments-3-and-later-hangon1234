@@ -117,6 +117,7 @@ static ssize_t aesd_write(struct file *filp, const char __user *buf, size_t coun
     }
     entry.buffptr = buffer;
     entry.size = count;
+    retval = count;
 
     // down_write_trylock returns 1 if success;
     if (down_write_trylock(&dev->sem) != 1)
@@ -124,9 +125,12 @@ static ssize_t aesd_write(struct file *filp, const char __user *buf, size_t coun
         goto aesd_write_fail;
     }
 
+    PDEBUG("<%s:%d> lock obtained\n", __FUNCTION__, __LINE__);
     // Add to the circular buffer
     entry_ptr = aesd_circular_buffer_add_entry(&aesd_buffer, &entry);
+    PDEBUG("<%s:%d> added\n", __FUNCTION__, __LINE__);
     up_write(&dev->sem);
+    PDEBUG("<%s:%d> lock released\n", __FUNCTION__, __LINE__);
 
     // Free removed entry
     if (entry_ptr != NULL)
