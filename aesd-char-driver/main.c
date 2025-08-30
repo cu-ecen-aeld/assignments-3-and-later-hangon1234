@@ -129,7 +129,7 @@ static ssize_t aesd_write(struct file *filp, const char __user *buf, size_t coun
     up_write(&dev->sem);
 
     // Free removed entry
-    if (entry_ptr->buffptr != NULL)
+    if (entry_ptr != NULL)
     {
         kfree(entry_ptr->buffptr);
     }
