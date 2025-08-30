@@ -55,7 +55,11 @@ static ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     // TODO: need to add appropriate locking 
     // f_pos is char_offset which is a specific position of circular buffer linear content
     size_t entry_offset_byte_rtn;
-    down_read(&dev->sem);
+    // down_read_trylock returns 1 if success
+    if (down_read_trylock(&dev->sem) != 1) 
+    {
+        return -ERESTARTSYS;
+    }
     struct aesd_buffer_entry* entry = aesd_circular_buffer_find_entry_offset_for_fpos(&buffer, *f_pos, &entry_offset_byte_rtn);
     up_read(&dev->sem);
     if (entry != NULL) {
@@ -65,6 +69,7 @@ static ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
             // only partial data available
             retval = entry->size;
         }
+
     } else {
         // no data is available
         retval = 0;
@@ -113,13 +118,21 @@ static ssize_t aesd_write(struct file *filp, const char __user *buf, size_t coun
     entry.buffptr = buffer;
     entry.size = count;
 
-    down_write(&dev->sem);
+    // down_write_trylock returns 1 if success;
+    if (down_write_trylock(&dev->sem) != 1)
+    {
+        goto aesd_write_fail;
+    }
+
     // Add to the circular buffer
     entry_ptr = aesd_circular_buffer_add_entry(&aesd_buffer, &entry);
     up_write(&dev->sem);
 
     // Free removed entry
-    kfree(entry_ptr->buffptr);
+    if (entry_ptr->buffptr != NULL)
+    {
+        kfree(entry_ptr->buffptr);
+    }
 
     return retval;
 
