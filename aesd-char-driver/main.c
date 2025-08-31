@@ -31,13 +31,15 @@ static int aesd_open(struct inode *inode, struct file *filp)
     PDEBUG("open");
     struct aesd_dev * dev;
     dev = container_of(inode->i_cdev, struct aesd_dev, cdev);
+    PDEBUG("<%s:%d> dev addr: %p\n", __FUNCTION__, __LINE__, dev);
+    PDEBUG("<%s:%d> aesd_circular_buffer addr: %p\n", __FUNCTION__, __LINE__, &dev->aesd_circular_buffer);
     filp->private_data = dev;
     return 0;
 }
 
 static int aesd_release(struct inode *inode, struct file *filp)
 {
-    PDEBUG("release");
+    PDEBUG("release\n");
     // We initialized aesd_dev.sem in aesd_init_module
     // So nothing need to be released
     return 0;
@@ -50,7 +52,9 @@ static ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
     // Retrieve private_data
     struct aesd_dev *dev = (struct aesd_dev*) filp->private_data;
-    struct aesd_circular_buffer buffer = dev->aesd_circular_buffer;
+    struct aesd_circular_buffer* buffer = &dev->aesd_circular_buffer;
+    PDEBUG("<%s:%d> aesd_circular_buffer addr: 0x%llx\n", __FUNCTION__, __LINE__, (long long unsigned int)  &buffer);
+    PDEBUG("<%s:%d> aesd_circular_buffer in_offs: %d\n", __FUNCTION__, __LINE__, buffer->in_offs);
     
     // TODO: need to add appropriate locking 
     // f_pos is char_offset which is a specific position of circular buffer linear content
@@ -60,27 +64,32 @@ static ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     {
         return -ERESTARTSYS;
     }
-    struct aesd_buffer_entry* entry = aesd_circular_buffer_find_entry_offset_for_fpos(&buffer, *f_pos, &entry_offset_byte_rtn);
+    PDEBUG("<%s:%d> lock obtained\n", __FUNCTION__, __LINE__);
+    struct aesd_buffer_entry* entry = aesd_circular_buffer_find_entry_offset_for_fpos(buffer, *f_pos, &entry_offset_byte_rtn);
     up_read(&dev->sem);
+    PDEBUG("<%s:%d> lock released\n", __FUNCTION__, __LINE__);
+
     if (entry != NULL) {
+
         if (count <= entry->size) {
             retval = count; // data is available
         } else {
             // only partial data available
             retval = entry->size;
         }
+        // update f_pos
+        *f_pos = *f_pos + retval;
+
+        // Copy buffer to user space
+        if (copy_to_user(buf, entry->buffptr, entry->size)) 
+        {
+            retval = -EFAULT;
+        }
 
     } else {
         // no data is available
         retval = 0;
-    }
-    // update f_pos
-    *f_pos = *f_pos + retval;
-
-    // Copy buffer to user space
-    if (copy_to_user(buf, entry->buffptr, entry->size)) 
-    {
-        retval = -EFAULT;
+        PDEBUG("<%s:%d> entry returned by aesd_circular_buffer_find_entry_offset_for_fpos is NULL\n", __FUNCTION__, __LINE__);
     }
 
     return retval;
@@ -98,7 +107,10 @@ static ssize_t aesd_write(struct file *filp, const char __user *buf, size_t coun
 
     // Retrieve private_data
     struct aesd_dev *dev = (struct aesd_dev*) filp->private_data;
-    struct aesd_circular_buffer aesd_buffer = dev->aesd_circular_buffer;
+    struct aesd_circular_buffer* aesd_buffer = &dev->aesd_circular_buffer;
+    PDEBUG("<%s:%d> dev addr: %p\n", __FUNCTION__, __LINE__, dev);
+    PDEBUG("<%s:%d> aesd_circular_buffer addr: %p\n", __FUNCTION__, __LINE__, &dev->aesd_circular_buffer);
+
     struct aesd_buffer_entry entry;
     const struct aesd_buffer_entry* entry_ptr;
 
@@ -116,6 +128,7 @@ static ssize_t aesd_write(struct file *filp, const char __user *buf, size_t coun
         goto aesd_write_fail;
     }
     entry.buffptr = buffer;
+    PDEBUG("<%s:%d> copied from userspace: %s\n", __FUNCTION__, __LINE__, entry.buffptr);
     entry.size = count;
     retval = count;
 
@@ -127,11 +140,12 @@ static ssize_t aesd_write(struct file *filp, const char __user *buf, size_t coun
 
     PDEBUG("<%s:%d> lock obtained\n", __FUNCTION__, __LINE__);
     // Add to the circular buffer
-    entry_ptr = aesd_circular_buffer_add_entry(&aesd_buffer, &entry);
+    entry_ptr = aesd_circular_buffer_add_entry(aesd_buffer, &entry);
     PDEBUG("<%s:%d> added\n", __FUNCTION__, __LINE__);
     up_write(&dev->sem);
     PDEBUG("<%s:%d> lock released\n", __FUNCTION__, __LINE__);
 
+    PDEBUG("<%s:%d> in_offs: %d\n", __FUNCTION__, __LINE__, aesd_buffer->in_offs);
     // Free removed entry
     if (entry_ptr != NULL)
     {
@@ -193,6 +207,7 @@ static int aesd_init_module(void)
     if( result ) {
         unregister_chrdev_region(dev, 1);
     }
+    PDEBUG("<%s:%d> aesd_init_module done\n", __FUNCTION__, __LINE__);
     return result;
 
 }
