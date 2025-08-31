@@ -80,12 +80,16 @@ static ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
         // update f_pos
         *f_pos = *f_pos + retval;
 
+        PDEBUG("<%s:%d> string from buffer: %s\n", __FUNCTION__, __LINE__, entry->buffptr);
         // Copy buffer to user space
         if (copy_to_user(buf, entry->buffptr, entry->size)) 
         {
             retval = -EFAULT;
         }
 
+        // Initialize size and buffptr
+        entry->buffptr = NULL;
+        entry->size = 0;
     } else {
         // no data is available
         retval = 0;
@@ -149,6 +153,7 @@ static ssize_t aesd_write(struct file *filp, const char __user *buf, size_t coun
     // Free removed entry
     if (entry_ptr != NULL)
     {
+        PDEBUG("<%s:%d> buffer freed after add entry\n", __FUNCTION__, __LINE__);
         kfree(entry_ptr->buffptr);
     }
 
