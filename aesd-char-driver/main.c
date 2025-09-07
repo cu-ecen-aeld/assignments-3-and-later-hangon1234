@@ -53,8 +53,8 @@ static ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     // Retrieve private_data
     struct aesd_dev *dev = (struct aesd_dev*) filp->private_data;
     struct aesd_circular_buffer* buffer = &dev->aesd_circular_buffer;
-    PDEBUG("<%s:%d> aesd_circular_buffer addr: 0x%llx\n", __FUNCTION__, __LINE__, (long long unsigned int)  &buffer);
-    PDEBUG("<%s:%d> aesd_circular_buffer in_offs: %d\n", __FUNCTION__, __LINE__, buffer->in_offs);
+    PDEBUG("<%s:%d> aesd_circular_buffer addr: 0x%llx\n", __FUNCTION__, __LINE__, (long long unsigned int) buffer);
+    PDEBUG("<%s:%d> aesd_circular_buffer in_offs: %d, out_offs: %d\n", __FUNCTION__, __LINE__, buffer->in_offs, buffer->out_offs);
     
     // TODO: need to add appropriate locking 
     // f_pos is char_offset which is a specific position of circular buffer linear content
@@ -87,9 +87,6 @@ static ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
             retval = -EFAULT;
         }
 
-        // Initialize size and buffptr
-        entry->buffptr = NULL;
-        entry->size = 0;
     } else {
         // no data is available
         retval = 0;
@@ -112,7 +109,6 @@ static ssize_t aesd_write(struct file *filp, const char __user *buf, size_t coun
     // Retrieve private_data
     struct aesd_dev *dev = (struct aesd_dev*) filp->private_data;
     struct aesd_circular_buffer* aesd_buffer = &dev->aesd_circular_buffer;
-    PDEBUG("<%s:%d> dev addr: %p\n", __FUNCTION__, __LINE__, dev);
     PDEBUG("<%s:%d> aesd_circular_buffer addr: %p\n", __FUNCTION__, __LINE__, &dev->aesd_circular_buffer);
 
     struct aesd_buffer_entry entry;

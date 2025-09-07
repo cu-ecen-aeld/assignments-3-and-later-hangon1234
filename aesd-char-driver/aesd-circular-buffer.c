@@ -64,6 +64,7 @@ const struct aesd_buffer_entry* aesd_circular_buffer_add_entry(struct aesd_circu
 
     if (buffer->full == true) {
        out_offs = &buffer->entry[buffer->out_offs]; 
+       buffer->out_offs = (buffer->out_offs + 1 ) % ENTRY_SIZE;
     }
     // Insert new entry to the buffer
     buffer->entry[buffer->in_offs] = *add_entry;
@@ -71,18 +72,10 @@ const struct aesd_buffer_entry* aesd_circular_buffer_add_entry(struct aesd_circu
     // Increase buffer offset
     buffer->in_offs = (buffer->in_offs + 1) % ENTRY_SIZE;
 
-    // When buffer is already full, move out_offs to the in_offs
-    if (buffer->full == true) {
-        buffer->out_offs = buffer->in_offs;
-    }
-    // mark buffer full
-    if (buffer->in_offs == buffer->out_offs) {
+    if (buffer->in_offs == buffer->out_offs)
+    {
         buffer->full = true;
     }
-    else {
-         buffer->full = false;
-    }
-    // This will be NULL or point to existing entry at out_offs
     return out_offs;
 }
 
