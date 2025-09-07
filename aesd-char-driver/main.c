@@ -112,7 +112,7 @@ static ssize_t aesd_write(struct file *filp, const char __user *buf, size_t coun
     PDEBUG("<%s:%d> aesd_circular_buffer addr: %p\n", __FUNCTION__, __LINE__, &dev->aesd_circular_buffer);
 
     struct aesd_buffer_entry entry;
-    const struct aesd_buffer_entry* entry_ptr;
+    struct aesd_buffer_entry entry_output;
 
     buffer = kmalloc(count, GFP_KERNEL);
 
@@ -140,17 +140,17 @@ static ssize_t aesd_write(struct file *filp, const char __user *buf, size_t coun
 
     PDEBUG("<%s:%d> lock obtained\n", __FUNCTION__, __LINE__);
     // Add to the circular buffer
-    entry_ptr = aesd_circular_buffer_add_entry(aesd_buffer, &entry);
+    entry_output = aesd_circular_buffer_add_entry(aesd_buffer, entry);
     PDEBUG("<%s:%d> added\n", __FUNCTION__, __LINE__);
     up_write(&dev->sem);
     PDEBUG("<%s:%d> lock released\n", __FUNCTION__, __LINE__);
 
-    PDEBUG("<%s:%d> in_offs: %d\n", __FUNCTION__, __LINE__, aesd_buffer->in_offs);
+    PDEBUG("<%s:%d> in_offs: %d, out_offs: %d\n", __FUNCTION__, __LINE__, aesd_buffer->in_offs, aesd_buffer->out_offs);
     // Free removed entry
-    if (entry_ptr != NULL)
+    if (entry_output.buffptr != NULL)
     {
-        PDEBUG("<%s:%d> buffer freed after add entry\n", __FUNCTION__, __LINE__);
-        kfree(entry_ptr->buffptr);
+        PDEBUG("<%s:%d> buffer freed after add entry, content: %s\n", __FUNCTION__, __LINE__, entry_output.buffptr);
+        kfree(entry_output.buffptr);
     }
 
     return retval;
