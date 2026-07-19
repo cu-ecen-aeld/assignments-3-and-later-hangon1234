@@ -9,3 +9,9 @@ test.sh.log
 aesdsocket
 server/aesdsocket
 server/valgrind-out.txt
+assignment-autotest
+assignment-autotest
+cmake_install.cmake
+aesd-char-driver/dump.txt
+aesd-char-driver/strace.txt
+assignment-autotest
