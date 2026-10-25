@@ -15,3 +15,9 @@ cmake_install.cmake
 aesd-char-driver/dump.txt
 aesd-char-driver/strace.txt
 assignment-autotest
+.Module.symvers.cmd
+.modules.order.cmd
+CMakeCache.txt
+Makefile
+Module.symvers
+modules.order
