@@ -43,6 +43,9 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
             offset = (offset + 1) % ENTRY_SIZE;
         }
     }
+    buffer->full = false;
+    buffer->in_offs = 0;
+    buffer->out_offs = 0;
     // not enough data is written. return NULL
     return NULL;
 }

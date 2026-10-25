@@ -127,8 +127,10 @@ static ssize_t aesd_write(struct file *filp, const char __user *buf, size_t coun
         retval = -EFAULT;
         goto aesd_write_fail;
     }
+    PDEBUG("<%s:%d> copied from userspace: %s", __FUNCTION__, __LINE__, buffer);
+    PDEBUG("Debug point 1\n");
+    
     entry.buffptr = buffer;
-    PDEBUG("<%s:%d> copied from userspace: %s\n", __FUNCTION__, __LINE__, entry.buffptr);
     entry.size = count;
     retval = count;
 
@@ -137,21 +139,46 @@ static ssize_t aesd_write(struct file *filp, const char __user *buf, size_t coun
     {
         goto aesd_write_fail;
     }
-
+    
     PDEBUG("<%s:%d> lock obtained\n", __FUNCTION__, __LINE__);
-    // Add to the circular buffer
-    entry_output = aesd_circular_buffer_add_entry(aesd_buffer, entry);
-    PDEBUG("<%s:%d> added\n", __FUNCTION__, __LINE__);
+
+    // Check if newline is existing or not
+    if (strstr(buffer, "\n") == NULL) {
+        // Not yet received new line
+        PDEBUG("<%s:%d> partial input\n", __FUNCTION__, __LINE__);
+        if (dev->temp_char_buffer == NULL) {
+            dev->temp_char_buffer = buffer;
+        }
+        else {
+            // Alloc 1 more to store terminating null '\0'
+            size_t malloc_size = count + strlen(dev->temp_char_buffer) + 1;
+            char* concat_buffer = kmalloc(malloc_size, GFP_KERNEL);
+            strcpy(concat_buffer, dev->temp_char_buffer);
+            strcat(concat_buffer, buffer);
+
+            // Free existing bufer 
+            kfree(buffer);
+            kfree(dev->temp_char_buffer);
+
+            // Store temp string
+            dev->temp_char_buffer = concat_buffer;
+        }
+    } else {
+        // Add to the circular buffer
+        entry_output = aesd_circular_buffer_add_entry(aesd_buffer, entry);
+        PDEBUG("<%s:%d> added\n", __FUNCTION__, __LINE__);
+        PDEBUG("<%s:%d> in_offs: %d, out_offs: %d\n", __FUNCTION__, __LINE__, aesd_buffer->in_offs, aesd_buffer->out_offs);
+        // Free removed entry
+        if (entry_output.buffptr != NULL)
+        {
+            PDEBUG("<%s:%d> buffer freed after add entry, content: %s\n", __FUNCTION__, __LINE__, entry_output.buffptr);
+            kfree(entry_output.buffptr);
+        }
+
+    }
+
     up_write(&dev->sem);
     PDEBUG("<%s:%d> lock released\n", __FUNCTION__, __LINE__);
-
-    PDEBUG("<%s:%d> in_offs: %d, out_offs: %d\n", __FUNCTION__, __LINE__, aesd_buffer->in_offs, aesd_buffer->out_offs);
-    // Free removed entry
-    if (entry_output.buffptr != NULL)
-    {
-        PDEBUG("<%s:%d> buffer freed after add entry, content: %s\n", __FUNCTION__, __LINE__, entry_output.buffptr);
-        kfree(entry_output.buffptr);
-    }
 
     return retval;
 

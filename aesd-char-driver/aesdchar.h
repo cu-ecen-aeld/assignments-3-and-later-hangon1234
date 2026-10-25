@@ -33,6 +33,7 @@ struct aesd_dev
     struct cdev cdev;     /* Char device structure      */
     struct aesd_circular_buffer aesd_circular_buffer; /* circular buffer structure */
     struct rw_semaphore sem; /* locking */
+    char* temp_char_buffer; /* temporary buffer to save input from user space before receiving newline '\n' */
 };
 
 #endif /* AESD_CHAR_DRIVER_AESDCHAR_H_ */
